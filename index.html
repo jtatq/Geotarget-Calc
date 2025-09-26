@@ -26,7 +26,7 @@
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 3px 10px rgba(10,13,26,.06);padding:18px}
   .titlebar{background:var(--gold);border-radius:14px;padding:14px 16px;margin:8px 0 14px 0;text-align:center;font-weight:800;font-size:26px;color:#0a1628;letter-spacing:.3px}
 
-  .checks{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;color:#222;font-weight:600;margin-bottom:8px}
+  .checks{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;color:#222;font-weight:600;margin:14px 0 20px}
   .check::before{content:'✔';margin-right:8px}
 
   .stack{display:flex;gap:18px;justify-content:center;align-items:stretch;flex-wrap:wrap}
@@ -132,7 +132,7 @@
   </div>
 
 <script>
-const TIERS = [
+const TIERS = Object.freeze([
   { min: 200, max: 410, cpm: 34.17 },
   { min: 411, max: 420, cpm: 33.60 },
   { min: 421, max: 465, cpm: 31.00 },
@@ -142,11 +142,13 @@ const TIERS = [
   { min: 691, max: 830, cpm: 19.76 },
   { min: 831, max: 880, cpm: 19.13 },
   { min: 881, max: Infinity, cpm: 18.83 },
-];
+]);
 
 const spendEl  = document.querySelector('#spend');
 const imprEl   = document.querySelector('#impr');
 const peopleEl = document.querySelector('#people');
+
+let editingField = null;
 
 function parseNum(v){ const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)?n:0; }
 function fmtMoney(n){ return '$'+Math.round(n).toLocaleString(); }
@@ -160,39 +162,83 @@ function spendFromImpr(impr){
 }
 function spendFromPeople(p){ return spendFromImpr(p*5); }
 
+function updateField(el, value, formatter){
+  if (editingField === el) return;
+  el.value = formatter(value);
+}
+
 function recalcFromSpend(){
-  const spend=Math.max(0,Math.round(parseNum(spendEl.value)));
+  const spend=Math.max(0,parseNum(spendEl.value));
   const cpm=cpmForSpend(spend);
-  const impr = Math.round((spend/cpm)*1000);
+  const impr = Math.round((spend/cpm)*1000) || 0;
   const people = Math.round(impr/5);
-  spendEl.value = fmtMoney(spend);
-  imprEl.value = fmtInt(impr);
-  peopleEl.value = fmtInt(people);
+  updateField(imprEl, impr, fmtInt);
+  updateField(peopleEl, people, fmtInt);
+  return { spend: Math.round(spend), impr, people };
 }
 function recalcFromImpr(){
   const impr=Math.max(0,Math.round(parseNum(imprEl.value)));
   const spend=Math.round(spendFromImpr(impr));
   const cpm=cpmForSpend(spend);
   const normImpr=Math.round((spend/cpm)*1000);
-  spendEl.value=fmtMoney(spend);
-  imprEl.value=fmtInt(normImpr);
-  peopleEl.value=fmtInt(Math.round(normImpr/5));
+  const people=Math.round(normImpr/5);
+  updateField(spendEl, spend, fmtMoney);
+  updateField(peopleEl, people, fmtInt);
+  updateField(imprEl, normImpr, fmtInt);
+  return { spend, impr: normImpr, people };
 }
 function recalcFromPeople(){
   const people=Math.max(0,Math.round(parseNum(peopleEl.value)));
   const spend=Math.round(spendFromPeople(people));
   const cpm=cpmForSpend(spend);
   const normImpr=Math.round((spend/cpm)*1000);
-  spendEl.value=fmtMoney(spend);
-  imprEl.value=fmtInt(normImpr);
-  peopleEl.value=fmtInt(Math.round(normImpr/5));
+  const normPeople=Math.round(normImpr/5);
+  updateField(spendEl, spend, fmtMoney);
+  updateField(imprEl, normImpr, fmtInt);
+  return { spend, impr: normImpr, people: normPeople };
 }
 
-spendEl.addEventListener('input', recalcFromSpend);
-imprEl.addEventListener('input', recalcFromImpr);
-peopleEl.addEventListener('input', recalcFromPeople);
+function rawValueFor(el){
+  const num = parseNum(el.value);
+  return Number.isFinite(num) ? String(Math.round(num)) : '';
+}
 
-recalcFromSpend();
+function onFocus(e){
+  editingField = e.target;
+  e.target.value = rawValueFor(e.target);
+  requestAnimationFrame(() => e.target.select());
+}
+
+function onBlur(e){
+  const target = e.target;
+  editingField = target;
+  let result;
+  if (target === spendEl) result = recalcFromSpend();
+  else if (target === imprEl) result = recalcFromImpr();
+  else result = recalcFromPeople();
+
+  const finalVal = target === spendEl ? result.spend : target === imprEl ? result.impr : result.people;
+  target.value = target === spendEl ? fmtMoney(finalVal) : fmtInt(finalVal);
+  editingField = null;
+}
+
+function onInputFrom(el, fn){
+  el.addEventListener('input', () => { editingField = el; fn(); });
+}
+
+[spendEl, imprEl, peopleEl].forEach(el => {
+  el.addEventListener('focus', onFocus);
+  el.addEventListener('blur', onBlur);
+});
+
+onInputFrom(spendEl, recalcFromSpend);
+onInputFrom(imprEl, recalcFromImpr);
+onInputFrom(peopleEl, recalcFromPeople);
+
+editingField = spendEl;
+const initial = recalcFromSpend();
+spendEl.value = fmtMoney(initial.spend);
+editingField = null;
 </script>
 
 
