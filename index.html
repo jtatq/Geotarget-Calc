@@ -156,9 +156,14 @@ function fmtInt(n){ return Math.round(n).toLocaleString(); }
 
 function cpmForSpend(sp){ for(const t of TIERS){ if (sp>=t.min && sp<=t.max) return t.cpm; } return TIERS[0].cpm; }
 function spendFromImpr(impr){
-  if (!impr||impr<=0) return 0;
-  for(const t of TIERS){ const s=(impr/1000)*t.cpm; if (s>=t.min && s<=t.max) return s; }
-  const last=TIERS[TIERS.length-1]; return (impr/1000)*last.cpm;
+  if (!impr || impr <= 0) return 0;
+  const lastTier = TIERS[TIERS.length-1];
+  for (const tier of TIERS){
+    const raw = (impr/1000)*tier.cpm;
+    const spend = Math.max(tier.min, Math.round(raw));
+    if (tier.max === Infinity || spend <= tier.max) return spend;
+  }
+  return Math.max(lastTier.min, Math.round((impr/1000)*lastTier.cpm));
 }
 function spendFromPeople(p){ return spendFromImpr(p*5); }
 
