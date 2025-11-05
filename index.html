@@ -108,21 +108,21 @@
         <div class="slot" id="card-spend">
           <div class="bar">Monthly Ad Spend</div>
           <div class="display">
-            <input id="spend" inputmode="decimal" aria-label="Monthly Ad Spend" value="$575">
+            <input id="spend" inputmode="decimal" aria-label="Monthly Ad Spend" value="$650">
           </div>
         </div>
 
         <div class="slot" id="card-impr">
           <div class="bar">Total Monthly Impressions</div>
           <div class="display">
-            <input id="impr" inputmode="numeric" aria-label="Total Monthly Impressions" value="25,000">
+            <input id="impr" inputmode="numeric" aria-label="Total Monthly Impressions" value="24,000">
           </div>
         </div>
 
         <div class="slot" id="card-people">
           <div class="bar">Total People 5x Per Month</div>
           <div class="display">
-            <input id="people" inputmode="numeric" aria-label="Total People 5x Per Month" value="5,000">
+            <input id="people" inputmode="numeric" aria-label="Total People 5x Per Month" value="4,800">
           </div>
         </div>
       </div>
@@ -133,15 +133,16 @@
 
 <script>
 const TIERS = Object.freeze([
-  { min: 200, max: 410, cpm: 34.17 },
-  { min: 411, max: 420, cpm: 33.60 },
-  { min: 421, max: 465, cpm: 31.00 },
-  { min: 466, max: 530, cpm: 28.27 },
-  { min: 531, max: 575, cpm: 26.14 },
-  { min: 576, max: 690, cpm: 23.00 },
-  { min: 691, max: 830, cpm: 19.76 },
-  { min: 831, max: 880, cpm: 19.13 },
-  { min: 881, max: Infinity, cpm: 18.83 },
+  { min: 258, max: 434, cpm: 35.20 },
+  { min: 435, max: 458, cpm: 34.80 },
+  { min: 459, max: 489, cpm: 32.74 },
+  { min: 490, max: 545, cpm: 31.56 },
+  { min: 546, max: 595, cpm: 29.07 },
+  { min: 596, max: 710, cpm: 27.05 },
+  { min: 711, max: 739, cpm: 23.69 },
+  { min: 740, max: 854, cpm: 20.56 },
+  { min: 855, max: 1164, cpm: 20.36 },
+  { min: 1165, max: Infinity, cpm: 19.41 },
 ]);
 
 const spendEl  = document.querySelector('#spend');
