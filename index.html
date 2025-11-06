@@ -68,6 +68,63 @@
   .slot input{width:100%;border:0;background:transparent;color:#ffd96b;font-weight:800;text-align:center;font-size:34px;outline:none;line-height:1.2}
   .slot input::placeholder{color:#d1d5db;opacity:.7}
 
+  .stack-discount{margin:18px auto 0;justify-content:center}
+  .slot-discount{
+    flex:1 1 420px;
+    max-width:560px;
+    margin:0 auto;
+    display:flex;
+    justify-content:center;
+    background:transparent;
+    border:none;
+    box-shadow:none;
+    padding:0;
+  }
+  .discount-banner{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    width:calc(100% - 120px);
+    max-width:520px;
+    margin:0 auto;
+    padding:6px 10px;
+    background:var(--panel);
+    border:2px solid var(--gold);
+    border-radius:12px;
+    box-shadow:0 5px 14px rgba(11,16,32,.2);
+  }
+  .discount-label{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-transform:uppercase;
+    font-weight:800;
+    letter-spacing:.7px;
+    color:var(--gold);
+    line-height:1;
+    text-align:center;
+  }
+  .discount-label span{font-size:16px;margin-top:0}
+  .discount-label span + span{margin-top:2px}
+  .discount-value{
+    background:var(--panel);
+    border:2px solid var(--gold);
+    border-radius:10px;
+    padding:6px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:120px;
+  }
+  .discount-amount{
+    font-size:26px;
+    font-weight:800;
+    color:#ffd96b;
+    line-height:1;
+  }
+
   .footnote{color:var(--muted);font-size:12px;margin-top:10px;text-align:center}
   .small{font-size:12px;color:var(--muted)}
 
@@ -76,6 +133,12 @@
     .slot .display{margin:16px auto 22px}
     .slot input{font-size:30px}
     .titlebar{font-size:22px}
+    .slot-discount{max-width:100%}
+    .discount-banner{flex-direction:column;align-items:stretch;gap:8px;padding:8px 10px;width:100%;margin:0}
+    .discount-label{align-items:center;text-align:center}
+    .discount-label span{font-size:14px}
+    .discount-value{width:100%;padding:6px 12px;min-width:0}
+    .discount-amount{font-size:24px}
   }
   @media (max-width:780px){
     .stack{flex-direction:column;align-items:center}
@@ -127,6 +190,20 @@
         </div>
       </div>
 
+      <div class="stack stack-discount">
+        <div class="slot slot-discount" id="card-discount">
+          <div class="discount-banner">
+            <div class="discount-label">
+              <span>Paid in Full</span>
+              <span>Savings</span>
+            </div>
+            <div class="discount-value">
+              <span class="discount-amount" id="discount-amount">$624</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="footnote"><strong>One-Time Setup Fee $695:</strong> Includes creating your campaign on all platforms, personal dashboard access, setting up all geofences, custom audience targeting, social media partner access, ongoing monitoring and campaign optimization.<br><strong>Start Date:</strong> 15 business days from today, exclusive for 12 months.<br>7 Media Package</div>
     </div>
   </div>
@@ -148,6 +225,8 @@ const TIERS = Object.freeze([
 const spendEl  = document.querySelector('#spend');
 const imprEl   = document.querySelector('#impr');
 const peopleEl = document.querySelector('#people');
+const discountAmountEl = document.querySelector('#discount-amount');
+const DISCOUNT_RATE = 0.08;
 
 let editingField = null;
 
@@ -173,35 +252,44 @@ function updateField(el, value, formatter){
   el.value = formatter(value);
 }
 
-function recalcFromSpend(){
-  const spend=Math.max(0,parseNum(spendEl.value));
-  const cpm=cpmForSpend(spend);
+function updateDiscount(spend){
+  if (!discountAmountEl) return;
+  const safeSpend = Math.max(0, Math.round(spend));
+  const annualSavings = Math.round(safeSpend * DISCOUNT_RATE * 12);
+  discountAmountEl.textContent = fmtMoney(annualSavings);
+}
+
+function stateFromSpend(rawSpend){
+  const spend = Math.max(0, Math.round(rawSpend));
+  const cpm = cpmForSpend(spend);
   const impr = Math.round((spend/cpm)*1000) || 0;
   const people = Math.round(impr/5);
-  updateField(imprEl, impr, fmtInt);
-  updateField(peopleEl, people, fmtInt);
-  return { spend: Math.round(spend), impr, people };
+  return { spend, impr, people };
 }
-function recalcFromImpr(){
-  const impr=Math.max(0,Math.round(parseNum(imprEl.value)));
-  const spend=Math.round(spendFromImpr(impr));
-  const cpm=cpmForSpend(spend);
-  const normImpr=Math.round((spend/cpm)*1000);
-  const people=Math.round(normImpr/5);
-  updateField(spendEl, spend, fmtMoney);
-  updateField(peopleEl, people, fmtInt);
-  updateField(imprEl, normImpr, fmtInt);
+
+function stateFromImpr(rawImpr){
+  const impr = Math.max(0, Math.round(rawImpr));
+  const spend = Math.max(0, Math.round(spendFromImpr(impr)));
+  const cpm = cpmForSpend(spend);
+  const normImpr = Math.round((spend/cpm)*1000);
+  const people = Math.round(normImpr/5);
   return { spend, impr: normImpr, people };
 }
-function recalcFromPeople(){
-  const people=Math.max(0,Math.round(parseNum(peopleEl.value)));
-  const spend=Math.round(spendFromPeople(people));
-  const cpm=cpmForSpend(spend);
-  const normImpr=Math.round((spend/cpm)*1000);
-  const normPeople=Math.round(normImpr/5);
-  updateField(spendEl, spend, fmtMoney);
-  updateField(imprEl, normImpr, fmtInt);
+
+function stateFromPeople(rawPeople){
+  const people = Math.max(0, Math.round(rawPeople));
+  const spend = Math.max(0, Math.round(spendFromPeople(people)));
+  const cpm = cpmForSpend(spend);
+  const normImpr = Math.round((spend/cpm)*1000);
+  const normPeople = Math.round(normImpr/5);
   return { spend, impr: normImpr, people: normPeople };
+}
+
+function renderState(state){
+  updateField(spendEl, state.spend, fmtMoney);
+  updateField(imprEl, state.impr, fmtInt);
+  updateField(peopleEl, state.people, fmtInt);
+  updateDiscount(state.spend);
 }
 
 function rawValueFor(el){
@@ -209,41 +297,49 @@ function rawValueFor(el){
   return Number.isFinite(num) ? String(Math.round(num)) : '';
 }
 
-function onFocus(e){
-  editingField = e.target;
-  e.target.value = rawValueFor(e.target);
-  requestAnimationFrame(() => e.target.select());
+function handleInput(el, calcFn, formatter){
+  el.addEventListener('input', () => {
+    editingField = el;
+    const state = calcFn(parseNum(el.value));
+    renderState(state);
+    if (!el.matches(':focus')) {
+      el.value = formatter(state);
+    }
+  });
 }
 
-function onBlur(e){
-  const target = e.target;
-  editingField = target;
-  let result;
-  if (target === spendEl) result = recalcFromSpend();
-  else if (target === imprEl) result = recalcFromImpr();
-  else result = recalcFromPeople();
-
-  const finalVal = target === spendEl ? result.spend : target === imprEl ? result.impr : result.people;
-  target.value = target === spendEl ? fmtMoney(finalVal) : fmtInt(finalVal);
-  editingField = null;
+function handleBlur(el, calcFn, formatter){
+  el.addEventListener('blur', () => {
+    editingField = el;
+    const state = calcFn(parseNum(el.value));
+    renderState(state);
+    el.value = formatter(state);
+    editingField = null;
+  });
 }
 
-function onInputFrom(el, fn){
-  el.addEventListener('input', () => { editingField = el; fn(); });
+function handleFocus(el){
+  el.addEventListener('focus', e => {
+    editingField = e.target;
+    e.target.value = rawValueFor(e.target);
+    requestAnimationFrame(() => e.target.select());
+  });
 }
 
-[spendEl, imprEl, peopleEl].forEach(el => {
-  el.addEventListener('focus', onFocus);
-  el.addEventListener('blur', onBlur);
-});
+handleFocus(spendEl);
+handleFocus(imprEl);
+handleFocus(peopleEl);
 
-onInputFrom(spendEl, recalcFromSpend);
-onInputFrom(imprEl, recalcFromImpr);
-onInputFrom(peopleEl, recalcFromPeople);
+handleInput(spendEl, stateFromSpend, state => fmtMoney(state.spend));
+handleInput(imprEl, stateFromImpr, state => fmtInt(state.impr));
+handleInput(peopleEl, stateFromPeople, state => fmtInt(state.people));
 
-editingField = spendEl;
-const initial = recalcFromSpend();
-spendEl.value = fmtMoney(initial.spend);
+handleBlur(spendEl, stateFromSpend, state => fmtMoney(state.spend));
+handleBlur(imprEl, stateFromImpr, state => fmtInt(state.impr));
+handleBlur(peopleEl, stateFromPeople, state => fmtInt(state.people));
+
+const initialState = stateFromSpend(parseNum(spendEl.value));
+renderState(initialState);
 editingField = null;
 </script>
 
