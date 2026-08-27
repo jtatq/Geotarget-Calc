@@ -210,17 +210,47 @@
 
 <script>
 const TIERS = Object.freeze([
-  { min: 258, max: 434, cpm: 35.20 },
-  { min: 435, max: 458, cpm: 34.80 },
-  { min: 459, max: 489, cpm: 32.74 },
-  { min: 490, max: 545, cpm: 31.56 },
-  { min: 546, max: 595, cpm: 29.07 },
-  { min: 596, max: 710, cpm: 27.05 },
-  { min: 711, max: 739, cpm: 23.69 },
-  { min: 740, max: 854, cpm: 20.56 },
-  { min: 855, max: 1164, cpm: 20.36 },
-  { min: 1165, max: Infinity, cpm: 19.41 },
+  { min: 276, max: 465, cpm: 37.24 },
+  { min: 466, max: 523, cpm: 33.77 },
+  { min: 524, max: 585, cpm: 31.20 },
+  { min: 586, max: 640, cpm: 29.09 },
+  { min: 641, max: 760, cpm: 25.35 },
+  { min: 761, max: 915, cpm: 21.78 },
+  { min: 916, max: Infinity, cpm: 20.75 },
 ]);
+const PACKAGE_POINTS = Object.freeze([
+  { spend: 276, impr: 7316 },
+  { spend: 331, impr: 8779 },
+  { spend: 386, impr: 10242 },
+  { spend: 420, impr: 11000 },
+  { spend: 441, impr: 11705 },
+  { spend: 465, impr: 12500 },
+  { spend: 490, impr: 14000 },
+  { spend: 523, impr: 15500 },
+  { spend: 585, impr: 18750 },
+  { spend: 640, impr: 22000 },
+  { spend: 670, impr: 26250 },
+  { spend: 760, impr: 30000 },
+  { spend: 790, impr: 36000 },
+  { spend: 915, impr: 42000 },
+  { spend: 1245, impr: 60000 },
+  { spend: 1557, impr: 75000 },
+  { spend: 2075, impr: 100000 },
+  { spend: 2594, impr: 125000 },
+  { spend: 3113, impr: 150000 },
+  { spend: 3632, impr: 175000 },
+  { spend: 4151, impr: 200000 },
+  { spend: 5188, impr: 250000 },
+  { spend: 6226, impr: 300000 },
+]);
+const HIGHLIGHTED_PACKAGE_SPENDS = Object.freeze([420, 465, 585, 640, 670, 790, 915, 1245]);
+const HIGHLIGHTED_PACKAGE_POINTS = Object.freeze(
+  PACKAGE_POINTS.filter(point => HIGHLIGHTED_PACKAGE_SPENDS.includes(point.spend))
+);
+const PACKAGE_BY_SPEND = new Map(PACKAGE_POINTS.map(point => [point.spend, point]));
+const PACKAGE_BY_IMPR = new Map(PACKAGE_POINTS.map(point => [point.impr, point]));
+const PACKAGE_BY_PEOPLE = new Map(PACKAGE_POINTS.map(point => [Math.round(point.impr / 5), point]));
+const IMPRESSION_ROUNDING_INCREMENT = 250;
 
 const spendEl  = document.querySelector('#spend');
 const imprEl   = document.querySelector('#impr');
@@ -233,19 +263,39 @@ let editingField = null;
 function parseNum(v){ const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)?n:0; }
 function fmtMoney(n){ return '$'+Math.round(n).toLocaleString(); }
 function fmtInt(n){ return Math.round(n).toLocaleString(); }
+function roundImpressions(n){ return Math.floor(n / IMPRESSION_ROUNDING_INCREMENT) * IMPRESSION_ROUNDING_INCREMENT; }
+function packageForSpend(sp){ return PACKAGE_BY_SPEND.get(sp) || null; }
+function packageForImpr(impr){ return PACKAGE_BY_IMPR.get(impr) || null; }
+function packageForPeople(people){ return PACKAGE_BY_PEOPLE.get(people) || null; }
+function nextHighlightedPackageForSpend(spend){
+  return HIGHLIGHTED_PACKAGE_POINTS.find(point => point.spend > spend) || null;
+}
+function impressionsForSpend(spend){
+  const packagePoint = packageForSpend(spend);
+  if (packagePoint) return packagePoint.impr;
+  const baseImpr = roundImpressions((spend / cpmForSpend(spend)) * 1000) || 0;
+  const nextHighlightedPackage = nextHighlightedPackageForSpend(spend);
+  if (!nextHighlightedPackage) return baseImpr;
+  return Math.min(baseImpr, nextHighlightedPackage.impr - IMPRESSION_ROUNDING_INCREMENT);
+}
 
 function cpmForSpend(sp){ for(const t of TIERS){ if (sp>=t.min && sp<=t.max) return t.cpm; } return TIERS[0].cpm; }
 function spendFromImpr(impr){
   if (!impr || impr <= 0) return 0;
+  const packagePoint = packageForImpr(impr);
+  if (packagePoint) return packagePoint.spend;
   const lastTier = TIERS[TIERS.length-1];
   for (const tier of TIERS){
     const raw = (impr/1000)*tier.cpm;
-    const spend = Math.max(tier.min, Math.round(raw));
+    const spend = Math.max(tier.min, Math.ceil(raw));
     if (tier.max === Infinity || spend <= tier.max) return spend;
   }
-  return Math.max(lastTier.min, Math.round((impr/1000)*lastTier.cpm));
+  return Math.max(lastTier.min, Math.ceil((impr/1000)*lastTier.cpm));
 }
-function spendFromPeople(p){ return spendFromImpr(p*5); }
+function spendFromPeople(p){
+  const packagePoint = packageForPeople(Math.round(p));
+  return packagePoint ? packagePoint.spend : spendFromImpr(p*5);
+}
 
 function updateField(el, value, formatter){
   if (editingField === el) return;
@@ -261,8 +311,7 @@ function updateDiscount(spend){
 
 function stateFromSpend(rawSpend){
   const spend = Math.max(0, Math.round(rawSpend));
-  const cpm = cpmForSpend(spend);
-  const impr = Math.round((spend/cpm)*1000) || 0;
+  const impr = impressionsForSpend(spend);
   const people = Math.round(impr/5);
   return { spend, impr, people };
 }
@@ -270,19 +319,13 @@ function stateFromSpend(rawSpend){
 function stateFromImpr(rawImpr){
   const impr = Math.max(0, Math.round(rawImpr));
   const spend = Math.max(0, Math.round(spendFromImpr(impr)));
-  const cpm = cpmForSpend(spend);
-  const normImpr = Math.round((spend/cpm)*1000);
-  const people = Math.round(normImpr/5);
-  return { spend, impr: normImpr, people };
+  return stateFromSpend(spend);
 }
 
 function stateFromPeople(rawPeople){
   const people = Math.max(0, Math.round(rawPeople));
   const spend = Math.max(0, Math.round(spendFromPeople(people)));
-  const cpm = cpmForSpend(spend);
-  const normImpr = Math.round((spend/cpm)*1000);
-  const normPeople = Math.round(normImpr/5);
-  return { spend, impr: normImpr, people: normPeople };
+  return stateFromSpend(spend);
 }
 
 function renderState(state){
